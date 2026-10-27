@@ -1,0 +1,31 @@
+services:
+  gtm:
+    image: gcr.io/cloud-tagging-10302018/gtm-cloud-image:stable
+    container_name: gtm
+    restart: unless-stopped
+    environment:
+      CONTAINER_CONFIG: ${GTM_CONTAINER_CONFIG}
+      PREVIEW_SERVER_URL: https://${GTM_PREVIEW_DOMAIN}
+      PORT: 8080
+    depends_on:
+      - gtm-preview
+
+  gtm-preview:
+    image: gcr.io/cloud-tagging-10302018/gtm-cloud-image:stable
+    container_name: gtm-preview
+    restart: unless-stopped
+    environment:
+      CONTAINER_CONFIG: ${GTM_CONTAINER_CONFIG}
+      RUN_AS_PREVIEW_SERVER: "true"
+      PORT: 8080
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TOKEN}
+    depends_on:
+      - gtm
+      - gtm-preview
