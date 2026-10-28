@@ -1,5 +1,6 @@
 /*
- * fbc-teste.mjs — prova as regras do fbc do tracking.js sem navegador e sem rede.
+ * fbc-teste.mjs — prova as regras do fbc (e a normalização do telefone) do
+ * tracking.js sem navegador e sem rede.
  *
  * Rode na pasta references:   node fbc-teste.mjs
  *
@@ -25,6 +26,7 @@ function criarNavegador({ host = 'www.exemplo.com.br', bloquearCookies = false }
   const local = new Map();
   let sessao = new Map();
   let agora = Date.UTC(2026, 9, 1, 12, 0, 0);
+  let ouvintes = {};
 
   function armazenamento(mapa) {
     return {
@@ -65,6 +67,7 @@ function criarNavegador({ host = 'www.exemplo.com.br', bloquearCookies = false }
   function carregar(caminho, { pagina = 'home', avancarMs = 0 } = {}) {
     agora += avancarMs;
     const url = new URL(caminho, `https://${host}/`);
+    ouvintes = {};
     const RealDate = Date;
     class DataControlada extends RealDate {
       constructor(...args) { super(...(args.length ? args : [agora])); }
@@ -87,7 +90,7 @@ function criarNavegador({ host = 'www.exemplo.com.br', bloquearCookies = false }
       title: 'teste',
       referrer: '',
       documentElement: { getAttribute: (n) => (n === 'data-page' ? pagina : null) },
-      addEventListener: () => {},
+      addEventListener: (tipo, fn) => { ouvintes[tipo] = fn; },
       getElementById: () => null,
       get cookie() { return lerJar(); },
       set cookie(linha) { gravarJar(linha); },
@@ -96,8 +99,29 @@ function criarNavegador({ host = 'www.exemplo.com.br', bloquearCookies = false }
     return window.dataLayer;
   }
 
+  /* Envia o formulário da página carregada por último, como o visitante faria. */
+  function enviarFormulario(valores) {
+    const campo = (nome, extra = {}) => ({ id: `form-campo-${nome}`, setAttribute: () => {}, focus: () => {}, ...extra });
+    const elements = {
+      nome: campo('nome', { value: valores.nome }),
+      email: campo('email', { value: valores.email }),
+      telefone: campo('telefone', { value: valores.telefone }),
+      consentimento: campo('consentimento', { checked: true }),
+    };
+    const botao = { getAttribute: (n) => (n === 'data-track-id' ? 'form-botao-enviar' : null) };
+    const form = {
+      id: 'form-lead',
+      elements,
+      matches: (sel) => sel === 'form[data-track-id]',
+      getAttribute: (n) => (n === 'name' ? 'form-lead-teste' : null),
+      querySelector: () => botao,
+    };
+    ouvintes.submit({ target: form, preventDefault: () => {} });
+  }
+
   return {
     carregar,
+    enviarFormulario,
     cookie: (n) => jar.get(n) || null,
     escritas,
     sessao,
@@ -205,6 +229,32 @@ caso('11. Cookie _fbc fora do formato oficial é ignorado (não inventa valor)',
   const nav = criarNavegador();
   nav.cookieExterno('_fbc=lixo-sem-formato; path=/; domain=exemplo.com.br');
   assert.equal(fbcDo(nav.carregar('/')), null);
+});
+
+caso('12. Telefone vai em E.164 com "+" (Google); só dígitos ao tirar o "+" (Meta)', () => {
+  const casos = [
+    ['+55 11 91234-5678', '+5511912345678'],
+    ['(11) 91234-5678', '+5511912345678'],
+    ['11 3123-4567', '+551131234567'],
+    ['+1 (650) 555-1234', '+16505551234'],
+  ];
+  for (const [digitado, esperado] of casos) {
+    const nav = criarNavegador();
+    const dl = nav.carregar('/');
+    nav.enviarFormulario({ nome: 'Fulano de Tal', email: ' Nome@Exemplo.com ', telefone: digitado });
+    const lead = dl.find((e) => e.event === 'generate_lead');
+    assert.ok(lead, `generate_lead não saiu para ${digitado}`);
+    assert.equal(lead.user_data.phone_number, esperado);
+    assert.match(lead.user_data.phone_number, /^\+[1-9]\d{7,14}$/);
+    assert.equal(lead.user_data.email, 'nome@exemplo.com');
+  }
+});
+
+caso('13. Telefone curto demais não gera generate_lead', () => {
+  const nav = criarNavegador();
+  const dl = nav.carregar('/');
+  nav.enviarFormulario({ nome: 'Fulano', email: 'nome@exemplo.com', telefone: '1234' });
+  assert.equal(dl.find((e) => e.event === 'generate_lead'), undefined);
 });
 
 for (const [estado, nome, erro] of resultados) {

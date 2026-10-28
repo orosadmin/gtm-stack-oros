@@ -11,8 +11,8 @@ português. Copie este arquivo para o projeto do aluno e ajuste as tabelas de el
 | ID do contêiner web do GTM (lugar 1 de 2) | `<head>` de todas as páginas, no fim do snippet (`snippet-head.html`) | `GTM-XXXXXXX` | Enquanto for `GTM-XXXXXXX` o snippet não carrega nada (a linha `if(i.indexOf('XXXX')...)` impede). |
 | ID do contêiner web do GTM (lugar 2 de 2) | `<noscript>` logo depois de `<body>`, em todas as páginas | `GTM-XXXXXXX` | Só é usado com JavaScript desligado. |
 | Domínio do GTM Server (opcional) | mesmo snippet, `https://www.googletagmanager.com` | Google | Troque pelo seu domínio próprio (ex.: `https://gtm.seusite.com.br`) se servir o gtm.js pelo contêiner de servidor. |
-| ID de medição do GA4 | `tracking.js`, constante `GA4_MEASUREMENT_ID` | `G-XXXXXXXXXX` | Usado só para ler o cookie `_ga_<ID>` (ga_session_id e ga_session_number). |
-| Consentimento | `tracking.js`, `window.trackingAtualizarConsentimento()` | tudo `denied`, `consent_source: padrao_negado` | Fica negado até o seu banner/CMP chamar a função (LGPD). |
+| ID de medição do GA4 | `tracking.js`, constante `GA4_MEASUREMENT_ID` | `G-XXXXXXXXXX` | Usado só para ler o cookie `_ga_<ID>` (ga_session_id e ga_session_number). Tem de ser o **mesmo** ID da tag do Google e da constante `C - ga4 measurement id` do GTM web. |
+| Consentimento | `tracking.js`, `window.trackingAtualizarConsentimento()` | tudo `denied`, `consent_source: padrao_negado` | Fica negado (também em produção) até o seu banner/CMP chamar a função (LGPD). Nenhuma tag do contêiner inicial lê este bloco ainda (seção 2.3). |
 | Página de obrigado e campos do formulário | `tracking.js`, `PAGINA_OBRIGADO` e `validarFormulario()` | `obrigado.html`; nome, email, telefone, consentimento | Ajuste ao formulário real. |
 
 ## 2. Formato padrão de todo push
@@ -39,9 +39,9 @@ Todo evento enviado ao dataLayer tem sempre os mesmos quatro blocos:
 
 | Chave | Origem | Exemplo | Observação |
 |---|---|---|---|
-| `external_id` | ID aleatório próprio (UUID), cookie `trk_external_id` + localStorage | `aced42e3-05c5-...` | Persistente (400 dias). Vai como `external_id` para a Meta. |
+| `external_id` | ID aleatório próprio (UUID), cookie `trk_external_id` + localStorage | `aced42e3-05c5-...` | Persistente (400 dias). Vai como `external_id` para a Meta (o mesmo valor no Pixel e na CAPI [M-EXT]). **Não** é `user_id` do GA4: esse é só para usuário logado [G-UID]. |
 | `email` | formulário | `nome@exemplo.com` | Vazio até o envio. Normalizado: sem espaços e minúsculo. |
-| `phone_number` | formulário | `5511912345678` | Vazio até o envio. Só dígitos com código do país (número BR sem DDI ganha `55`). |
+| `phone_number` | formulário | `+5511912345678` | Vazio até o envio. E.164 com `+` (formato do Google [G-EC]); número digitado sem `+` e com 10 ou 11 dígitos ganha `55`. Para a Meta, só os dígitos (a tag do servidor tira o `+`; no Pixel, mande sem ele) [M-CIP][T-CAPI]. |
 | `first_name`, `last_name` | formulário (nome completo) | `fulano`, `de tal` | Vazio até o envio. Minúsculo. Ajuda o casamento (fn/ln) na Meta. |
 | `fbp` | cookie `_fbp` (criado pelo Pixel/tag da Meta) | `fb.1.1793139000000.1234567890` | `null` enquanto nenhuma tag da Meta criar o cookie. |
 | `fbc` | `?fbclid=` da URL de entrada; senão cookie `_fbc` como está; senão `null` | `fb.1.<criação em ms>.<fbclid>` | Regras completas em `fbc.md`. A data de criação nunca é refeita. |
@@ -54,16 +54,18 @@ Todo evento enviado ao dataLayer tem sempre os mesmos quatro blocos:
 | `ip_address` | **sempre `null` no navegador** | `null` | Ver seção 4. |
 | `user_agent` | `navigator.userAgent` | `Mozilla/5.0 ...` | O servidor também recebe o user agent pelo cabeçalho da requisição. |
 
-O hash SHA-256 de e-mail/telefone **não** é feito no navegador: as tags do contêiner de servidor
-(Meta CAPI, Google Ads Enhanced Conversions) fazem o hash antes de enviar.
+O hash SHA-256 de e-mail/telefone **não** é feito pelo `tracking.js`: o Pixel da Meta faz o hash da
+correspondência avançada [M-AM] e a tag da API de Conversões faz no servidor [T-CAPI]. Hash e
+normalização de cada chave: `parametros.md` (seção 3). As siglas entre colchetes levam às fontes em
+`fontes.md`.
 
 ### 2.2 event_data — o que aconteceu
 
 | Chave | Exemplo | Observação |
 |---|---|---|
-| `event_id` | `cc4f8d30-d83e-40e1-ba0a-e86f84e248d6` | UUID único por evento. Usado para deduplicar navegador × servidor (Meta `event_id`, GA). `lead_confirmed` reaproveita o do `generate_lead`. |
+| `event_id` | `cc4f8d30-d83e-40e1-ba0a-e86f84e248d6` | UUID único por evento. Deduplica Pixel × CAPI na Meta (mesmo nome, mesmo id, mesmo Pixel, 48 h) [M-DEDUP]. O GA4 não deduplica por `event_id`. `lead_confirmed` reaproveita o do `generate_lead`. |
 | `event_name` | `generate_lead` | Igual ao `event`. |
-| `event_timestamp` | `1793139852467` | Milissegundos. Para a Meta CAPI use segundos (`/1000`). |
+| `event_timestamp` | `1793139852467` | Milissegundos. A CAPI usa `event_time` em segundos e no máximo 7 dias atrás [M-SE]; a tag oficial usa a hora do envio quando não recebe `event_time` [T-CAPI]. |
 | `event_source_url` | `http://localhost:8000/index.html?utm_source=...` | URL completa. |
 | `page_title` | `Seu Site — Página inicial` | |
 | `page_path` | `/index.html` | |
@@ -85,18 +87,22 @@ O hash SHA-256 de e-mail/telefone **não** é feito no navegador: as tags do con
 | `ad_personalization` | `denied` |
 
 O modelo não traz banner. O seu banner/CMP chama `window.trackingAtualizarConsentimento({...}, 'banner')`
-e os próximos pushes levam o novo estado. Configure também o Consent Mode do GTM (padrão negado +
-atualização) a partir do mesmo banner.
+e os próximos pushes levam o novo estado.
+
+**Ainda não ligado no contêiner inicial:** nenhuma tag lê este bloco. O próximo passo é ligar, a
+partir do mesmo banner, o Consent Mode v2 do Google (padrão negado + atualização) [G-CM][G-SCM] e o
+consentimento do Pixel (`fbq('consent', 'grant'|'revoke')`, campo "Consent Granted" do modelo)
+[T-PIX].
 
 ## 3. Eventos
 
 | Evento | Quando dispara | Página | event_data extra | Uso sugerido no GTM |
 |---|---|---|---|---|
-| `page_data` | Assim que a página começa a carregar (antes do GTM) | todas | — | Disponibiliza os dados. O GTM dispara o `page_view` dele (acionador "Inicialização"/"Visualização de página"). |
+| `page_data` | Assim que a página começa a carregar (antes do GTM) | todas | — | A tag de evento GA4 envia `page_view` (com `event_id`; a tag do Google fica com `send_page_view` = `false`) e o Pixel envia `PageView` com o mesmo `event_id`. |
 | `cta_click` | Clique em qualquer `<a>` ou `<button>` com `data-track-id` | todas | `element_id`, `element_label`, `element_location` | Acionador de evento personalizado `cta_click`, filtrando por `event_data.element_id`. |
 | `form_start` | Primeiro foco em um campo do formulário (uma vez por página) | home | `form_id`, `form_name`, elemento focado | GA4 `form_start`. |
-| `generate_lead` | Envio **válido** do formulário | home | `form_id`, `form_name`, botão de envio | GA4 `generate_lead` (evento recomendado). Push com `eventCallback` + `eventTimeout: 1000`. |
-| `lead_confirmed` | Carregamento de `obrigado.html` vindo de um envio real | obrigado | mesmo `event_id` do `generate_lead`, `form_id`, `form_name` | Conversão comprovada: Meta `Lead` (CAPI + Pixel com o mesmo `event_id`), Google Ads. |
+| `generate_lead` | Envio **válido** do formulário | home | `form_id`, `form_name`, botão de envio | GA4 `generate_lead` (evento recomendado). Meta `Lead` no Pixel e na CAPI, com o mesmo `event_id`. Push com `eventCallback` + `eventTimeout: 1000`. |
+| `lead_confirmed` | Carregamento de `obrigado.html` vindo de um envio real | obrigado | mesmo `event_id` do `generate_lead`, `form_id`, `form_name` | Conversão comprovada: GA4 `lead_confirmed`; Meta `Lead` só pelo Pixel, com o mesmo `event_id` do `generate_lead` (a Meta mantém um só). |
 
 O clique no botão de envio gera primeiro um `cta_click` (o clique) e, se o formulário for válido,
 um `generate_lead`. Envio inválido não gera `generate_lead`: aparecem mensagens de erro em cada campo.
@@ -123,9 +129,11 @@ de "descubra seu IP" (seria mais um terceiro recebendo dados do visitante). Por 
 sempre `null` no dataLayer.
 
 O IP é preenchido **no servidor**: quando o GTM web envia o hit para o contêiner de servidor, o servidor
-lê o IP da própria requisição (cabeçalho `X-Forwarded-For` / IP remoto). A tag da API de Conversões da
-Meta no contêiner de servidor envia `client_ip_address` e `client_user_agent` a partir dessa requisição;
-o cliente GA4 do servidor faz o mesmo para o Google.
+lê o IP da própria requisição (cabeçalhos `Forwarded`/`X-Forwarded-For`, em melhor esforço [G-API]) e o
+expõe nos dados do evento como `ip_override`, junto com `user_agent` [G-CED]. A tag da API de Conversões
+da Meta envia `client_ip_address` e `client_user_agent` a partir desses dois campos [T-CAPI]. Que o
+cliente GA4 preenche `ip_override` a partir da requisição não está escrito na documentação (**NÃO
+VERIFICADO**): confira no Preview do servidor que o valor é o IP do visitante, e não o de um proxy.
 
 ## 5. Convenção de identificadores dos elementos
 
@@ -187,7 +195,7 @@ Click ID / Click Element) para criar acionadores por elemento.
 | Nome | Tipo | Duração | Conteúdo |
 |---|---|---|---|
 | `trk_external_id` | cookie + localStorage | 400 dias | ID aleatório do visitante |
-| `_fbc` | cookie (domínio registrável, `path=/`, `SameSite=Lax`) | 90 dias a partir da criação do clique | Gravado só quando chega um `fbclid` novo ou o cookie falta; ver `fbc.md` |
+| `_fbc` | cookie (domínio registrável, `path=/`, `SameSite=Lax`) | 90 dias a partir da criação do clique | O `tracking.js` grava só quando chega um `fbclid` novo ou o cookie falta. A tag da Meta no servidor, com "Extend cookies", pode regravá-lo como cookie HTTP; ver `fbc.md` (seção 7) |
 | `trk_fbc` | sessionStorage + localStorage | reserva; ignorada depois de 90 dias da criação | Cópia do `_fbc`, usada só se o cookie não existir |
 | `trk_atribuicao` | localStorage | até novo clique com UTM/click id | gclid, gbraid, wbraid e UTMs do último toque |
 | `trk_lead_enviado` | sessionStorage | apagado no push do `lead_confirmed` | event_id, form_id/form_name e dados do lead |

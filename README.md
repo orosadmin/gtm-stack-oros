@@ -104,9 +104,11 @@ Se funcionar, abra o GTM server-side e clique em **Preview**: a janela do Tag As
 
 ## Passo 6 — Enviar dados (GA4 e Meta)
 
-1. **GA4:** no site, configure o `server_container_url` (ou `transport_url`) do GA4 apontando para `https://sgtm.seudominio.com`. No container server, crie um **client** GA4 e uma **tag** GA4.
-2. **Meta (Conversions API):** no container server, adicione a tag **Facebook Conversion API** com seu Pixel ID e Access Token.
-3. Use o **Preview** para ver as requisições chegando e as tags disparando antes de publicar.
+1. **GA4:** no GTM web, configure o `server_container_url` da **tag do Google** apontando para `https://sgtm.seudominio.com`. No container server, use um **client** GA4 e uma **tag** GA4 com acionador Client Name = `GA4`.
+2. **Meta (Conversions API):** no container server, adicione a tag oficial da API de Conversões da Meta (modelo da Galeria publicado por `facebookincubator`) com seu Pixel ID e Access Token. Ela não tem campo de nome de evento: traduz sozinha os nomes GA4 (`page_view` → `PageView`, `generate_lead` → `Lead`) e manda qualquer outro nome como evento personalizado, então **limite o acionador** aos eventos que você quer (ex.: `page_view` e `generate_lead`).
+3. Use o **Preview** para ver as requisições chegando e as tags disparando antes de publicar. O **Test Event Code** da Meta deve ficar vazio fora do Preview.
+
+O desenho completo (constantes por site, tabelas de consulta, Pixel no navegador deduplicado com a CAPI) está em [`skills/gtm-tracking/SKILL.md`](skills/gtm-tracking/SKILL.md), seção 3, com as fontes oficiais em [`skills/gtm-tracking/references/fontes.md`](skills/gtm-tracking/references/fontes.md). Os arquivos de exportação dos contêineres web e server (modelo reutilizável) serão adicionados a este repositório depois.
 
 ---
 
@@ -118,12 +120,19 @@ rastreamento da live no **seu** site:
 - dataLayer padrão (`user_data`, `event_data`, `consent`) com os eventos `page_data`, `cta_click`,
   `form_start`, `generate_lead` e `lead_confirmed` (com `event_id` para deduplicação);
 - convenção de ids dos elementos (`data-track-id`, `data-track-label`, `data-track-location`);
-- consentimento negado por padrão até o banner atualizar;
-- ligação GTM web → GTM Server (esta stack) → GA4 e Meta CAPI, com uma tag por provedor;
+- consentimento negado por padrão até o banner atualizar (o Consent Mode v2 e o consentimento do
+  Pixel ainda não estão ligados no contêiner inicial: é o próximo passo);
+- ligação GTM web → GTM Server (esta stack) → GA4 e Meta CAPI, com uma tag por provedor, Pixel com
+  nomes padrão da Meta e deduplicação por `event_id`;
 - captura correta do **`fbc` da Meta** (`fbclid` da URL ou cookie `_fbc`, sem refazer a data do clique).
 
 Os modelos ficam em `skills/gtm-tracking/references/` (`tracking.js`, snippet do GTM, exemplo de
-dataLayer, plano de rastreamento, regras do fbc e um teste: `node skills/gtm-tracking/references/fbc-teste.mjs`).
+dataLayer, plano de rastreamento, regras do fbc, referência de parâmetros GA4 × Meta e um teste:
+`node skills/gtm-tracking/references/fbc-teste.mjs`).
+
+As regras sobre GA4, Pixel e API de Conversões seguem a documentação oficial do Google e da Meta e
+o código dos modelos oficiais do GTM. A lista de fontes, com o que não pôde ser confirmado, está em
+[`skills/gtm-tracking/references/fontes.md`](skills/gtm-tracking/references/fontes.md).
 
 **Usar no Claude Code:** copie ou crie um link da pasta para `.claude/skills/` do projeto do seu site:
 
