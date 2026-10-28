@@ -110,6 +110,36 @@ Se funcionar, abra o GTM server-side e clique em **Preview**: a janela do Tag As
 
 ---
 
+## Skill de rastreamento para agentes (`skills/gtm-tracking`)
+
+Este repositório traz uma skill que ensina um agente de IA (Claude Code e similares) a implementar o
+rastreamento da live no **seu** site:
+
+- dataLayer padrão (`user_data`, `event_data`, `consent`) com os eventos `page_data`, `cta_click`,
+  `form_start`, `generate_lead` e `lead_confirmed` (com `event_id` para deduplicação);
+- convenção de ids dos elementos (`data-track-id`, `data-track-label`, `data-track-location`);
+- consentimento negado por padrão até o banner atualizar;
+- ligação GTM web → GTM Server (esta stack) → GA4 e Meta CAPI, com uma tag por provedor;
+- captura correta do **`fbc` da Meta** (`fbclid` da URL ou cookie `_fbc`, sem refazer a data do clique).
+
+Os modelos ficam em `skills/gtm-tracking/references/` (`tracking.js`, snippet do GTM, exemplo de
+dataLayer, plano de rastreamento, regras do fbc e um teste: `node skills/gtm-tracking/references/fbc-teste.mjs`).
+
+**Usar no Claude Code:** copie ou crie um link da pasta para `.claude/skills/` do projeto do seu site:
+
+```bash
+# dentro do projeto do seu site
+mkdir -p .claude/skills
+cp -r /caminho/para/gtm-stack-oros/skills/gtm-tracking .claude/skills/
+# ou, para receber atualizações com git pull:
+ln -s /caminho/para/gtm-stack-oros/skills/gtm-tracking .claude/skills/gtm-tracking
+```
+
+Depois peça, por exemplo: *"use a skill gtm-tracking para instalar o rastreamento neste site"*.
+Outros agentes: aponte para `skills/gtm-tracking/SKILL.md` como instrução.
+
+---
+
 ## Problemas comuns
 
 | Sintoma | Causa provável | O que fazer |

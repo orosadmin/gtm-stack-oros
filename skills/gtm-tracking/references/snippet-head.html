@@ -1,0 +1,42 @@
+<!--
+  snippet-head.html — o que vai no <head> e logo depois do <body> de TODAS as páginas.
+
+  Ordem obrigatória no <head>:
+    1º tracking.js  (cria o dataLayer e faz o push page_data ANTES do GTM)
+    2º snippet do GTM web
+
+  Troque GTM-XXXXXXX nos DOIS lugares (head e noscript) pelo ID do seu contêiner web.
+  Enquanto for GTM-XXXXXXX o snippet não carrega nada (a linha "if" impede).
+  Se você serve o gtm.js pelo seu contêiner de servidor (domínio próprio, ex.:
+  https://sgtm.seudominio.com), troque https://www.googletagmanager.com por ele.
+
+  Na tag <html>, marque a página: data-page="home", data-page="obrigado", etc.
+  O tracking.js usa data-page="obrigado" para disparar o lead_confirmed.
+-->
+
+<!-- ======================= DENTRO DO <head> ======================= -->
+
+<!-- 1º) dataLayer: criado e preenchido (page_data) ANTES do GTM. Não mova para baixo do snippet do GTM. -->
+<script src="/assets/tracking.js"></script>
+
+<!-- 2º) Google Tag Manager -->
+<script>(function(w,d,s,l,i){if(i.indexOf('XXXX')!==-1)return;w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-XXXXXXX');</script>
+<!-- End Google Tag Manager -->
+
+<!-- ================= LOGO DEPOIS DA ABERTURA DO <body> ================= -->
+
+<!-- Google Tag Manager (noscript) — mesmo ID do <head> -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-XXXXXXX"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+<!-- ============== EXEMPLO DE ELEMENTO RASTREADO ============== -->
+<!-- id = data-track-id (kebab-case, <local>-<tipo>-<nome>); label em português; location = seção -->
+<a href="#formulario" id="hero-cta-principal"
+   data-track-id="hero-cta-principal"
+   data-track-label="Botão principal do topo: leva ao formulário de inscrição"
+   data-track-location="hero">Quero participar</a>
