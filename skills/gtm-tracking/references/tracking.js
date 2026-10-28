@@ -169,22 +169,31 @@
   }
 
   /* ------------------------------------------------------------------------
-   *  Normalização dos dados pessoais (formato esperado por Meta CAPI e
-   *  Google Enhanced Conversions). O hash SHA-256 NÃO é feito aqui: as tags
-   *  do contêiner de servidor fazem o hash antes de enviar.
+   *  Normalização dos dados pessoais (formato esperado pelo Google e pela
+   *  Meta; tabela completa em references/parametros.md). O hash SHA-256 NÃO é
+   *  feito aqui: o Pixel da Meta faz o hash da correspondência avançada no
+   *  navegador e a tag da API de Conversões faz no servidor.
    * ---------------------------------------------------------------------- */
 
   function normalizarEmail(email) {
     return (email || '').trim().toLowerCase();
   }
 
-  /* Telefone: só dígitos, com código do país. Número brasileiro sem DDI (10 ou 11 dígitos) ganha o 55. */
+  /*
+   * Telefone no formato E.164 com "+" (ex.: +5511912345678), que é o que o
+   * Google pede. Número digitado sem "+" e com 10 ou 11 dígitos é tratado
+   * como brasileiro sem DDI e ganha o 55; com "+", o DDI digitado é mantido.
+   * Para a Meta vale o mesmo número só com dígitos: a tag oficial da API de
+   * Conversões remove o "+" antes do hash; no Pixel, mande sem o "+".
+   */
   function normalizarTelefone(telefone) {
-    var digitos = (telefone || '').replace(/\D/g, '');
-    if (digitos.length === 10 || digitos.length === 11) {
+    var texto = (telefone || '').trim();
+    var digitos = texto.replace(/\D/g, '');
+    if (!digitos) return '';
+    if (texto.charAt(0) !== '+' && (digitos.length === 10 || digitos.length === 11)) {
       digitos = '55' + digitos;
     }
-    return digitos;
+    return '+' + digitos;
   }
 
   function normalizarNome(nome) {
@@ -199,7 +208,10 @@
    *  Identificadores do visitante
    * ---------------------------------------------------------------------- */
 
-  /* ID próprio (first-party) e aleatório do visitante: vira o external_id da Meta e o user_id que você quiser. */
+  /*
+   * ID próprio (first-party) e aleatório do visitante: vira o external_id da
+   * Meta. NÃO use como user_id do GA4: o user_id é só para usuário logado.
+   */
   function obterExternalId() {
     var id = lerCookie(CHAVE_EXTERNAL_ID) || lerLocal(CHAVE_EXTERNAL_ID);
     if (!id) {
@@ -422,8 +434,9 @@
        * IP: o JavaScript do navegador NÃO consegue ler o IP do visitante, e
        * não usamos serviços externos de IP. Fica sempre null aqui.
        * É preenchido no SERVIDOR: o contêiner de servidor do GTM lê o IP da
-       * requisição (X-Forwarded-For) e a tag da API de Conversões da Meta
-       * envia client_ip_address e client_user_agent a partir dela.
+       * requisição (cabeçalhos Forwarded/X-Forwarded-For) e a tag da API de
+       * Conversões da Meta envia client_ip_address e client_user_agent a
+       * partir dos dados do evento (ip_override e user_agent).
        */
       ip_address: null,
       user_agent: navigator.userAgent
@@ -466,8 +479,9 @@
    *     ad_user_data: 'granted', ad_personalization: 'granted'
    *   }, 'banner');
    *
-   * Isso só muda o bloco "consent" dos próximos pushes. Configure também o
-   * Consent Mode no GTM (padrão negado + atualização) a partir do banner.
+   * Isso só muda o bloco "consent" dos próximos pushes. Nenhuma tag lê este
+   * bloco no contêiner inicial: ligar o Consent Mode v2 do Google e o
+   * consentimento do Pixel (grant/revoke) a partir do banner é o próximo passo.
    */
   var estadoConsentimento = {
     consent_source: 'padrao_negado',
@@ -579,8 +593,8 @@
     mostrarErro(email, okEmail ? '' : 'Digite um e-mail válido, por exemplo nome@empresa.com.');
     if (!okEmail) erros.push(email);
 
-    var digitos = normalizarTelefone(telefone.value);
-    var okTelefone = digitos.length >= 12 && digitos.length <= 15;
+    /* E.164: "+" e de 10 a 15 dígitos (número brasileiro: 55 + DDD + número). */
+    var okTelefone = /^\+[1-9]\d{9,14}$/.test(normalizarTelefone(telefone.value));
     mostrarErro(telefone, okTelefone ? '' : 'Digite o telefone com DDD, por exemplo +55 11 91234-5678.');
     if (!okTelefone) erros.push(telefone);
 
