@@ -114,8 +114,8 @@ obrigado não o carregam. Por isso:
 A tag oficial do GTM Server não tem campos para o `fbc`: ela escolhe o valor sozinha, nesta ordem
 (função `getFbcValue` do modelo) [T-CAPI]:
 
-1. o parâmetro de evento `x-fb-ck-fbc` (mande `{{DLV - user_data.fbc}}` na tag de evento GA4 do
-   GTM web); senão o cookie `_fbc` que chegou na requisição;
+1. o parâmetro de evento `x-fb-ck-fbc` (o modelo `gtm/templates/web.json` manda `{{user_fbc}}` na tag
+   `ga4_event`); senão o cookie `_fbc` que chegou na requisição;
 2. **porém, se a `page_location` do evento tiver `fbclid`, a tag ignora o passo 1** e monta
    `fb.<índice>.<agora no servidor, em ms>.<fbclid decodificado>`, com o índice calculado como na
    seção 4 (2 em `.com.br`);

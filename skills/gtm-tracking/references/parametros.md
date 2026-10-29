@@ -128,7 +128,7 @@ Caminho do `event_id` neste modelo:
 
 ```
 tracking.js: event_data.event_id (UUID)
-  └─ GTM web: {{DLV - event_data.event_id}}
+  └─ GTM web: {{event_id}}
        ├─ tag do Pixel → campo Event ID → fbq('trackSingle', pixel, 'Lead', props, {eventID})
        └─ tag de evento GA4 → parâmetro event_id
              └─ GTM Server: dado do evento event_id → tag da Meta → event_id   [T-CAPI]

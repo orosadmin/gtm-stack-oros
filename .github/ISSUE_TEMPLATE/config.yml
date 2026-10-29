@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Vulnerabilidade ou token vazado
+    url: https://github.com/orosadmin/gtm-stack-oros/security/advisories/new
+    about: Não abra issue pública. Use o relato privado (veja SECURITY.md).

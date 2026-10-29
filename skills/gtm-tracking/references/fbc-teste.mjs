@@ -1,14 +1,3 @@
-/*
- * fbc-teste.mjs — prova as regras do fbc (e a normalização do telefone) do
- * tracking.js sem navegador e sem rede.
- *
- * Rode na pasta references:   node fbc-teste.mjs
- *
- * Carrega o tracking.js de verdade dentro de um "navegador de mentira" (Node vm)
- * com cookies que respeitam domain/expires, localStorage, sessionStorage e um
- * relógio controlado. Cada carregamento de página roda o script do zero, como
- * no navegador; cookies e armazenamento continuam entre as páginas.
- */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -21,8 +10,8 @@ const DIA = 864e5;
 const SUFIXOS_PUBLICOS = new Set(['com', 'br', 'com.br', 'net']);
 
 function criarNavegador({ host = 'www.exemplo.com.br', bloquearCookies = false } = {}) {
-  const jar = new Map(); // nome -> { valor, dominio, expira, atributos }
-  const escritas = [];   // toda escrita feita pelo script (para provar que ele não reescreve)
+  const jar = new Map();
+  const escritas = [];
   const local = new Map();
   let sessao = new Map();
   let agora = Date.UTC(2026, 9, 1, 12, 0, 0);
@@ -56,7 +45,7 @@ function criarNavegador({ host = 'www.exemplo.com.br', bloquearCookies = false }
     }
     if (a.domain) {
       const d = a.domain.replace(/^\./, '');
-      if (SUFIXOS_PUBLICOS.has(d) || !(host === d || host.endsWith('.' + d))) return; // navegador recusa
+      if (SUFIXOS_PUBLICOS.has(d) || !(host === d || host.endsWith('.' + d))) return;
     }
     const expira = a.expires ? Date.parse(a.expires) : null;
     if (expira !== null && expira <= agora) { jar.delete(nome); return; }
@@ -99,7 +88,6 @@ function criarNavegador({ host = 'www.exemplo.com.br', bloquearCookies = false }
     return window.dataLayer;
   }
 
-  /* Envia o formulário da página carregada por último, como o visitante faria. */
   function enviarFormulario(valores) {
     const campo = (nome, extra = {}) => ({ id: `form-campo-${nome}`, setAttribute: () => {}, focus: () => {}, ...extra });
     const elements = {
@@ -126,7 +114,6 @@ function criarNavegador({ host = 'www.exemplo.com.br', bloquearCookies = false }
     escritas,
     sessao,
     local,
-    /* Grava um cookie "por fora" do script, como o Pixel da Meta faria. Não conta como escrita do script. */
     cookieExterno(linha) { gravarJar(linha); escritas.length = 0; },
     agora: () => agora,
   };
