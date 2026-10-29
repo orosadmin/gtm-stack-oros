@@ -18,8 +18,9 @@ Material pronto em `references/`:
 
 | Arquivo | Para que serve |
 |---|---|
-| `references/tracking.js` | Modelo do script (placeholders `G-XXXXXXXXXX`; comentado em português) |
-| `references/snippet-head.html` | Ordem no `<head>`, snippet do GTM (`GTM-XXXXXXX`), `<noscript>` e exemplo de elemento rastreado |
+| `references/tracking.js` | Modelo do script: só pushes no dataLayer e captura do `_fbc`, sem ID de GA4 ou Pixel e sem comentários (a explicação está nesta skill e em `references/tracking-plano.md`) |
+| `references/snippet-head.html` | `tracking.js` + snippet do GTM (`GTM-XXXXXXX`) para o `<head>`, `<noscript>` para depois do `<body>` e um exemplo de elemento rastreado (seção 4, passo 4) |
+| `../../gtm/templates/` | Contêineres web e server prontos para importar no GTM (guia em `gtm/README.md`) |
 | `references/datalayer-exemplo.json` | Um push completo de exemplo |
 | `references/tracking-plano.md` | Plano de rastreamento: chaves, eventos, convenção de ids, armazenamento |
 | `references/fbc.md` | Regras do `fbc` da Meta (leia antes de mexer em fbc) |
@@ -36,11 +37,14 @@ Todo push tem **sempre** os mesmos quatro blocos:
 ```js
 {
   event: 'nome_do_evento',
-  user_data:  { /* QUEM é o visitante: identificadores */ },
-  event_data: { /* O QUE aconteceu: detalhes do evento */ },
-  consent:    { /* estado de consentimento */ }
+  user_data: {},
+  event_data: {},
+  consent: {}
 }
 ```
+
+`user_data` diz **quem** é o visitante (identificadores), `event_data` diz **o que** aconteceu
+(detalhes do evento) e `consent` guarda o estado de consentimento.
 
 Regras:
 
@@ -135,13 +139,20 @@ e faça o teste manual da seção 8 de `references/fbc.md` (`?fbclid=TESTE123`, 
 
 ## 3. Ligando GTM web → GTM Server → GA4 / Meta CAPI
 
-Este é o desenho do **contêiner modelo** (web e servidor) que acompanha esta skill. Os arquivos de
-exportação dos contêineres serão adicionados a este repositório depois; até lá, monte à mão seguindo
-esta seção. Princípio: **uma tag por provedor** em cada contêiner, nomes vindos de **tabelas de
-consulta**, e o que muda de um site para outro fica só em **constantes**.
+Os contêineres prontos para importar estão em `gtm/templates/` na raiz deste repositório
+(`web.json` e `server.json`), com o passo a passo de importação, a tabela do que preencher e os
+limites em `gtm/README.md`. Esta seção explica o desenho deles. Princípio: **uma tag por provedor**
+em cada contêiner, nomes vindos de **tabelas de consulta** e o que muda de um site para outro fica só
+em **constantes**.
+
+**Sem script duplicado:** GA4 e Pixel da Meta são carregados **só pelo GTM**. A página carrega apenas
+o `tracking.js` (que só faz pushes no dataLayer e cuida do `_fbc`) e o snippet do GTM. Nunca coloque
+`gtag.js`, `fbq(...)`, `fbevents.js`, ID de medição do GA4 ou Pixel ID no código do site: o evento
+seria contado duas vezes e a deduplicação por `event_id` deixaria de funcionar.
 
 Tags usadas: o modelo oficial do Pixel da Meta no GTM web [T-PIX] e a tag oficial da API de
-Conversões da Meta no GTM Server [T-CAPI], ambos da Galeria de modelos.
+Conversões da Meta no GTM Server [T-CAPI], ambos da Galeria de modelos (vêm embutidos nos arquivos
+de exportação).
 
 ### O que cada tag oficial faz (e não faz)
 
@@ -153,7 +164,7 @@ Conversões da Meta no GTM Server [T-CAPI], ambos da Galeria de modelos.
   traduz sozinha os nomes GA4 do mapa oficial (`page_view` → `PageView`, `generate_lead` → `Lead`,
   `purchase` → `Purchase`...; tabela em `references/parametros.md`) [M-GTM]. Qualquer outro nome
   (`cta_click`, `form_start`, `lead_confirmed`, `scroll`...) vai para a Meta **igual, como evento
-  personalizado**. Por isso o **acionador** da tag do servidor precisa limitar os eventos.
+  personalizado**. Por isso o **acionador** da tag do servidor limita os eventos.
 - A tag do servidor lê tudo dos dados do evento GA4 [T-CAPI]:
   - `event_id` → `event_id` (deduplicação);
   - `x-fb-ck-fbc` / `x-fb-ck-fbp` → `fbc` / `fbp` (senão os cookies `_fbc`/`_fbp` da requisição);
@@ -165,103 +176,105 @@ Conversões da Meta no GTM Server [T-CAPI], ambos da Galeria de modelos.
 
 ### Constantes (as únicas edições por site)
 
-| Contêiner | Constante | Observação |
-|---|---|---|
-| Web | `C - ga4 measurement id` | **Tem de ser o mesmo ID** usado pela tag do Google e pelo `GA4_MEASUREMENT_ID` do `tracking.js`; senão `ga_session_id`/`ga_session_number` ficam `null` e os dados vão para outra propriedade |
-| Web | `C - meta pixel id` | O mesmo Pixel ID do servidor (a deduplicação é por Pixel) [M-DEDUP] |
-| Web | `C - server container url` | `https://` + `GTM_DOMAIN` desta stack |
-| Servidor | `C - meta pixel id` | Igual ao do web |
-| Servidor | `C - meta access token` | Só no contêiner de servidor; nunca no código do site nem no repositório |
-| Servidor | `C - meta test event code` | Usado **só no Preview** (ver abaixo) |
+| Contêiner | Constante | Valor no modelo | Observação |
+|---|---|---|---|
+| Web | `ga4_tag_id` | `G-XXXXXXXXXX` | ID de medição do GA4, usado pela `google_tag` e pela `ga4_event` |
+| Web | `meta_pixel` | `PREENCHER_META_PIXEL_ID` | O mesmo Pixel ID do servidor (a deduplicação é por Pixel) [M-DEDUP] |
+| Web | `transport_url` | `https://sgtm.seudominio.com` | `https://` + `GTM_DOMAIN` desta stack |
+| Servidor | `meta_pixel` | `PREENCHER_META_PIXEL_ID` | Igual ao do web |
+| Servidor | `meta_access_token` | `PREENCHER_META_ACCESS_TOKEN` | Só no contêiner de servidor; nunca no código do site nem no repositório |
+| Servidor | `meta_test_event_code` | vazio | Preencha **só** durante o teste e apague antes de publicar |
 
-### Tabelas de consulta (GTM web, sobre `{{Event}}`)
+### Tabelas de consulta (GTM web, sobre o evento do dataLayer)
 
 | dataLayer `event` | `LT - ga4 event name` | `LT - meta event name` |
 |---|---|---|
 | `page_data` | `page_view` | `PageView` |
-| `generate_lead` | `generate_lead` | `Lead` |
-| `lead_confirmed` | `lead_confirmed` | `Lead` (mesmo `event_id` do `generate_lead`: deduplica) |
-| `cta_click`, `form_start` | igual ao evento | (vazio: a Meta não recebe) |
+| `generate_lead` | `generate_lead` (padrão: o próprio evento) | `Lead` |
+| `lead_confirmed` | `lead_confirmed` (padrão) | `Lead` (mesmo `event_id` do `generate_lead`: deduplica) |
+| `cta_click`, `form_start` | igual ao evento (padrão) | não vai para a Meta (acionador `CE - meta events`) |
 
-Valor padrão de `LT - meta event name`: vazio. Evento personalizado só vai para a Meta se você
-colocar um nome na tabela.
+### GTM web (`gtm/templates/web.json`)
 
-### GTM web
-
-1. **Variáveis de camada de dados** (versão 2): `user_data.email`, `user_data.phone_number`,
-   `user_data.first_name`, `user_data.last_name`, `user_data.external_id`, `user_data.fbp`,
-   `user_data.fbc`, `event_data.event_id`, `event_data.element_id`, `event_data.form_id` etc.
-   Nomeie como `DLV - user_data.fbc`.
-2. **Tag do Google** com `{{C - ga4 measurement id}}`, `server_container_url` =
-   `{{C - server container url}}` [G-SST] e `send_page_view` = `false` (o `page_view` sai da tag de
-   evento, com `event_id`). Dispara na Inicialização. `user_id` só para usuário **logado**; **não**
-   mapeie o `external_id` anônimo para `user_id` [G-UID].
-3. **Uma tag "Evento do GA4"** para todos os eventos, no acionador de evento personalizado
-   `^(page_data|cta_click|form_start|generate_lead|lead_confirmed)$`:
+1. **Variáveis de camada de dados** (versão 2): `event_id` (`event_data.event_id`), `event_name`,
+   `user_email`, `user_phone`, `user_first_name`, `user_last_name`, `user_external_id`, `user_fbp`,
+   `user_fbc`, `user_user_agent` e `user_id` (todas lendo `user_data.*`).
+2. **Acionadores:** `CE - tracked events` (evento personalizado
+   `^(page_data|generate_lead|lead_confirmed|form_start|cta_click)$`) e `CE - meta events`
+   (`^(page_data|generate_lead|lead_confirmed)$`).
+3. **`google_tag`** (tag do Google) com `{{ga4_tag_id}}`, `server_container_url` =
+   `{{transport_url}}` [G-SST], `send_page_view` = `false` (o `page_view` sai da tag de evento, com
+   `event_id`) e `user_id` = `{{user_id}}`. Dispara na Inicialização. O `tracking.js` não envia
+   `user_id`: preencha só para usuário **logado**; **não** use o `external_id` anônimo [G-UID].
+4. **`ga4_event`** (uma tag "Evento do GA4" para todos os eventos), em `CE - tracked events`:
    - nome do evento = `{{LT - ga4 event name}}`;
-   - parâmetros: `event_id` = `{{DLV - event_data.event_id}}`, `x-fb-ck-fbc` =
-     `{{DLV - user_data.fbc}}`, `x-fb-ck-fbp` = `{{DLV - user_data.fbp}}`, `x-fb-ud-external_id` =
-     `{{DLV - user_data.external_id}}`, além de `element_id`, `form_id`...;
-   - `user_data` = variável "Dados fornecidos pelo usuário" (manual) com e-mail, telefone (E.164),
-     nome e sobrenome do `user_data` do dataLayer; ative a coleta de dados fornecidos pelo usuário no
-     Admin do GA4 [G-UPD][G-UPD-GTM].
-4. **Uma tag do Pixel da Meta** no **mesmo** acionador, com exceção quando `{{LT - meta event name}}`
-   estiver vazio:
-   - Event Name = Variável `{{LT - meta event name}}`; Event ID = `{{DLV - event_data.event_id}}`;
-   - Pixel ID = `{{C - meta pixel id}}`;
-   - correspondência avançada: e-mail, telefone **só com dígitos** (ex.: variável JavaScript que
-     tira o `+` do `user_data.phone_number`), nome, sobrenome e `external_id` [M-CIP][M-AM];
-   - sem linha `server_container_url` nas propriedades do objeto: ela não manda o Pixel pelo
-     servidor, só envia mais um parâmetro à Meta.
+   - parâmetros: `event_id` = `{{event_id}}`, `x-fb-ck-fbc` = `{{user_fbc}}`, `x-fb-ck-fbp` =
+     `{{user_fbp}}`, `x-fb-ud-external_id` = `{{user_external_id}}`.
+5. **`meta_pixel`** (modelo oficial do Pixel), em `CE - meta events`:
+   - Event Name = `{{LT - meta event name}}`; Event ID = `{{event_id}}`; Pixel ID = `{{meta_pixel}}`;
+   - correspondência avançada: `em`, `ph`, `fn`, `ln` e `external_id` a partir do `user_data`;
+   - "Meta-enabled Conversions API" (`optInMetaCAPI`) desligado e sem `server_container_url` nas
+     propriedades do objeto.
 
-### GTM Server (esta stack)
+**Ainda não está no modelo** (faça à mão se precisar; detalhes em `gtm/README.md`): a variável
+"Dados fornecidos pelo usuário" (manual) passada como `user_data` na `ga4_event`, para o GA4 e a CAPI
+também receberem e-mail e telefone [G-UPD][G-UPD-GTM]; e o telefone **só com dígitos** no Pixel
+[M-CIP][M-AM] (o modelo manda `{{user_phone}}` com `+`).
 
-1. **Cliente GA4** recebe os hits do GTM web.
-2. **Tag GA4** com ID de medição em branco (herda o do hit) e acionador Client Name = `GA4`
-   [G-SST][G-SIG]. Recomendado: uma transformação Exclude só para esta tag que tira `x-fb-*` e
-   `event_id`, que não servem ao GA4 [G-TR].
-3. **Tag da API de Conversões da Meta** (modelo oficial) [T-CAPI]:
-   - Pixel ID = `{{C - meta pixel id}}`, Access Token = `{{C - meta access token}}`, Action Source
-     `website`;
-   - Test Event Code = tabela de consulta sobre `{{Debug Mode}}`: `true` → `{{C - meta test event
-     code}}`, senão **vazio**. Eventos com código de teste não são descartados e a Meta manda
-     removê-lo em produção [M-API][M-GTM];
-   - **acionador limitado**: Client Name = `GA4` **e** Event Name corresponde a
-     `^(page_view|generate_lead)$`. Os dois já são traduzidos pela tag (`PageView`, `Lead`), então não
-     é preciso trocar nomes no servidor. **Não** use só "Client Name = GA4": todo evento GA4
-     (`scroll`, `user_engagement`, `form_start`...) iria para a Meta como personalizado [T-CAPI];
+### GTM Server (`gtm/templates/server.json`)
+
+1. **Cliente `GA4`** recebe os hits do GTM web.
+2. **`ga4_web-to-server`** (tag GA4) sem ID de medição próprio (herda o do hit), no acionador
+   `ga4_client_name` (Client Name = `GA4`) [G-SST][G-SIG].
+3. **`meta_capi`** (tag oficial da API de Conversões da Meta) [T-CAPI]:
+   - Pixel ID = `{{meta_pixel}}`, Access Token = `{{meta_access_token}}`, Test Event Code =
+     `{{meta_test_event_code}}`, Action Source `website`, "Extend cookies" ligado;
+   - **acionador limitado** `ga4_meta_events`: Client Name = `GA4` **e** Event Name corresponde a
+     `^(page_view|generate_lead)$`. Os dois já são traduzidos pela tag (`PageView`, `Lead`). **Não**
+     use só "Client Name = GA4": todo evento GA4 (`scroll`, `user_engagement`, `form_start`...) iria
+     para a Meta como personalizado [T-CAPI];
    - o `lead_confirmed` não vai pela CAPI: o Pixel manda `Lead` com o mesmo `event_id` do
      `generate_lead`, que já foi pela CAPI, e a Meta mantém um só [M-DEDUP].
-4. Para mandar à Meta um nome fora do mapa da tag (ex.: `Contact`), a saída citada pela Meta é usar o
+4. Código de teste: eventos com código de teste não são descartados e a Meta manda removê-lo em
+   produção [M-API][M-GTM]. O modelo traz `meta_test_event_code` **vazio**. O ideal (ainda não no
+   modelo) é uma tabela de consulta sobre `{{Debug Mode}}`: `true` → código de teste, senão vazio.
+5. **Ainda não está no modelo:** uma transformação "Excluir parâmetros" só para a tag GA4, que tira
+   `x-fb-*` e `event_id`, que não servem ao GA4 [G-TR].
+6. Para mandar à Meta um nome fora do mapa da tag (ex.: `Contact`), a saída citada pela Meta é usar o
    nome do evento personalizado [M-GTM]; trocar o `event_name` com uma transformação Augment só para
    a tag da Meta é **NÃO VERIFICADO** [G-TR]: teste no Preview.
-5. Consentimento: ver seção 1 ("Ainda não ligado no contêiner inicial").
-6. Valide no **Preview** dos dois contêineres antes de publicar e depois confira no Gerenciador de
+7. Consentimento: ver seção 1 ("Ainda não ligado no contêiner inicial").
+8. Valide no **Preview** dos dois contêineres antes de publicar e depois confira no Gerenciador de
    Eventos: aba Event Deduplication [M-VER], EMQ do `Lead` ≥ 6 [M-VER] e nenhum `page_data`, `scroll`
    ou `user_engagement` chegando à Meta.
 
 ## 4. Implementando no site do aluno
 
 1. Pergunte (ou descubra no código): domínio, páginas, onde fica o formulário e a página de
-   obrigado, ID do contêiner web, ID do GA4, domínio do GTM Server. Se o aluno não informar um ID,
-   mantenha o placeholder.
-2. Copie `references/tracking.js` para o site (ex.: `/assets/tracking.js`). Ajuste os pontos marcados
-   com `>>>`: `GA4_MEASUREMENT_ID` (o mesmo ID da constante `C - ga4 measurement id` e da tag do
-   Google), `PAGINA_OBRIGADO`, `validarFormulario()` e os nomes dos campos. Não altere o bloco do fbc
-   além disso.
-3. Em todas as páginas, aplique `references/snippet-head.html`: `tracking.js` **antes** do snippet do
-   GTM, `<noscript>` depois do `<body>`, e `data-page` na tag `<html>` (`obrigado` na página de
-   obrigado).
-4. Marque os elementos com `id`/`data-track-id`/`data-track-label`/`data-track-location` e o
+   obrigado, ID do contêiner web e domínio do GTM Server. Se o aluno não informar um ID, mantenha o
+   placeholder.
+2. Procure e **remova** do site qualquer carregamento direto de analytics (`gtag.js`, `gtag(...)`,
+   `fbq(...)`, `fbevents.js`, outro snippet do GTM): tudo passa a sair do GTM.
+3. Copie `references/tracking.js` para o site (ex.: `/assets/tracking.js`). Ajuste só
+   `PAGINA_OBRIGADO` (no topo do arquivo), `validarFormulario()` e os nomes dos campos do formulário
+   (`nome`, `email`, `telefone`, `consentimento`). Não altere o bloco do fbc além disso.
+4. Em todas as páginas, aplique `references/snippet-head.html`: as duas primeiras tags `<script>`
+   (`tracking.js` **antes** do snippet do GTM) dentro do `<head>`; o `<noscript>` logo depois da
+   abertura do `<body>`; o `<a>` final é só um exemplo de elemento rastreado. Troque `GTM-XXXXXXX`
+   nos dois lugares; enquanto for `GTM-XXXXXXX`, o snippet não carrega nada. Marque a página com
+   `data-page` na tag `<html>` (`obrigado` na página de obrigado). Se o `gtm.js` for servido pelo
+   contêiner de servidor, troque `https://www.googletagmanager.com` pelo domínio dele.
+5. Marque os elementos com `id`/`data-track-id`/`data-track-label`/`data-track-location` e o
    formulário com `data-track-id`.
-5. Ligue o consentimento ao banner do site (`window.trackingAtualizarConsentimento`) e, nos
+6. Ligue o consentimento ao banner do site (`window.trackingAtualizarConsentimento`) e, nos
    contêineres, o Consent Mode v2 e o consentimento do Pixel (seção 1).
-6. Gere o plano do site a partir de `references/tracking-plano.md`, com a lista real de elementos.
-7. Configure os contêineres como na seção 3.
-8. Teste: `node references/fbc-teste.mjs`, o roteiro de `references/fbc.md` (seção 8) e o Preview do
+7. Gere o plano do site a partir de `references/tracking-plano.md`, com a lista real de elementos.
+8. Importe e preencha os contêineres de `gtm/templates/` como em `gtm/README.md`.
+9. Teste: `node references/fbc-teste.mjs`, o roteiro de `references/fbc.md` (seção 8) e o Preview do
    GTM (cada evento com as quatro chaves, `lead_confirmed` com o mesmo `event_id` do
    `generate_lead` e o mesmo `fbc` da página de entrada; Pixel com `Lead`/`PageView`, nunca
-   `generate_lead`/`page_data`; código de teste da Meta vazio fora do Preview).
+   `generate_lead`/`page_data`; código de teste da Meta vazio fora do Preview; nenhuma requisição a
+   `gtag/js` ou `fbevents.js` que não venha do GTM).
 
 Se o site não for HTML estático (WordPress, React, Next.js...), mantenha a ideia: o script roda no
 `<head>` antes do GTM em toda página; em SPA, adapte o script para repetir o `page_data` (e o `capturarFbc()`) a cada troca de rota.

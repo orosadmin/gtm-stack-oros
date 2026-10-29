@@ -1,8 +1,9 @@
 # Plano de rastreamento — modelo (skill gtm-tracking)
 
 Modelo de plano de rastreamento para um site com uma home com formulário (`index.html`) e uma página de
-obrigado (`obrigado.html`). Toda a lógica de dataLayer está no `tracking.js` desta pasta, comentada em
-português. Copie este arquivo para o projeto do aluno e ajuste as tabelas de elementos (seção 6) ao site real.
+obrigado (`obrigado.html`). Toda a lógica de dataLayer está no `tracking.js` desta pasta (sem comentários no código: a
+explicação está aqui e na `SKILL.md`). O `tracking.js` só faz pushes no dataLayer e cuida do `_fbc`;
+GA4 e Pixel são carregados **só pelo GTM** (contêineres em `gtm/templates/`). Copie este arquivo para o projeto do aluno e ajuste as tabelas de elementos (seção 6) ao site real.
 
 ## 1. O que você precisa trocar
 
@@ -11,7 +12,7 @@ português. Copie este arquivo para o projeto do aluno e ajuste as tabelas de el
 | ID do contêiner web do GTM (lugar 1 de 2) | `<head>` de todas as páginas, no fim do snippet (`snippet-head.html`) | `GTM-XXXXXXX` | Enquanto for `GTM-XXXXXXX` o snippet não carrega nada (a linha `if(i.indexOf('XXXX')...)` impede). |
 | ID do contêiner web do GTM (lugar 2 de 2) | `<noscript>` logo depois de `<body>`, em todas as páginas | `GTM-XXXXXXX` | Só é usado com JavaScript desligado. |
 | Domínio do GTM Server (opcional) | mesmo snippet, `https://www.googletagmanager.com` | Google | Troque pelo seu domínio próprio (ex.: `https://gtm.seusite.com.br`) se servir o gtm.js pelo contêiner de servidor. |
-| ID de medição do GA4 | `tracking.js`, constante `GA4_MEASUREMENT_ID` | `G-XXXXXXXXXX` | Usado só para ler o cookie `_ga_<ID>` (ga_session_id e ga_session_number). Tem de ser o **mesmo** ID da tag do Google e da constante `C - ga4 measurement id` do GTM web. |
+| ID de medição do GA4, Pixel ID, token da Meta | **só no GTM** (constantes `ga4_tag_id`, `meta_pixel`, `meta_access_token`), nunca na página | `G-XXXXXXXXXX`, `PREENCHER_*` | Tabela completa em `gtm/README.md`. |
 | Consentimento | `tracking.js`, `window.trackingAtualizarConsentimento()` | tudo `denied`, `consent_source: padrao_negado` | Fica negado (também em produção) até o seu banner/CMP chamar a função (LGPD). Nenhuma tag do contêiner inicial lê este bloco ainda (seção 2.3). |
 | Página de obrigado e campos do formulário | `tracking.js`, `PAGINA_OBRIGADO` e `validarFormulario()` | `obrigado.html`; nome, email, telefone, consentimento | Ajuste ao formulário real. |
 
@@ -45,9 +46,7 @@ Todo evento enviado ao dataLayer tem sempre os mesmos quatro blocos:
 | `first_name`, `last_name` | formulário (nome completo) | `fulano`, `de tal` | Vazio até o envio. Minúsculo. Ajuda o casamento (fn/ln) na Meta. |
 | `fbp` | cookie `_fbp` (criado pelo Pixel/tag da Meta) | `fb.1.1793139000000.1234567890` | `null` enquanto nenhuma tag da Meta criar o cookie. |
 | `fbc` | `?fbclid=` da URL de entrada; senão cookie `_fbc` como está; senão `null` | `fb.1.<criação em ms>.<fbclid>` | Regras completas em `fbc.md`. A data de criação nunca é refeita. |
-| `ga_client_id` | cookie `_ga` (`GA1.1.X.Y` → `X.Y`) | `987654321.1793139000` | |
-| `ga_session_id` | cookie `_ga_<ID do GA4>` | `1793139000` | Precisa de `GA4_MEASUREMENT_ID`. Lê os formatos GS1 e GS2. |
-| `ga_session_number` | cookie `_ga_<ID do GA4>` | `7` | Idem. |
+| `ga_client_id` | cookie `_ga` (`GA1.1.X.Y` → `X.Y`) | `987654321.1793139000` | Só leitura do cookie, para cruzar com CRM. Sessão (`ga_session_id`/`ga_session_number`) não é lida na página: a própria tag do Google envia. |
 | `gclid` | URL `?gclid=`; senão cookie `_gcl_aw` | `TESTE_GCLID_456` | Guardado no localStorage para chegar à página de obrigado. |
 | `gbraid`, `wbraid` | URL | | Idem (iOS / app). |
 | `utm_source`, `utm_medium`, `utm_campaign`, `utm_term`, `utm_content` | URL | `youtube`, `live`, `gtm_server` | Último toque: novas UTMs/click ids na URL substituem as guardadas. |

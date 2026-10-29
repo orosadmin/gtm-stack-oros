@@ -79,7 +79,6 @@ Como ler:
 | O Pixel faz hash do `external_id` passado no `init` | [M-AM] | **NÃO VERIFICADO**: a página lista o campo, mas não detalha |
 | Cliente GA4 do servidor preenche `ip_override` a partir da requisição | [G-API], [G-CED], [T-CAPI] | **NÃO VERIFICADO** na documentação; a tag da Meta depende disso. Confira no Preview |
 | Usar `CF-Connecting-IP` (Cloudflare) para corrigir o IP | — | **NÃO VERIFICADO**: só se o Preview mostrar o IP do proxy |
-| Nomes `ga_session_id`/`ga_session_number` nos dados do evento do sGTM | — | **NÃO VERIFICADO** em documentação oficial |
 | `user_id` só para logado | [G-UID] | Confirmado |
 | `test_event_code` fora de produção | [M-API], [M-GTM] | Confirmado |
 | Consent Mode v2 e consentimento do Pixel | [G-CM], [G-SCM], [T-PIX], [M-BTT] | Confirmado |
